@@ -41,14 +41,22 @@ var _ = framework.KubeDescribe("Container", func() {
 
 		var testImageList []string
 		if runtime.GOARCH == "amd64" {
-			testImageList = []string{
+		   if runtime.GOOS == "windows" {
+             		  testImageList = []string{
+			  	"k8s.gcr.io/e2e-test-images/busybox:1.29-1",
+			  }
+
+		    } else {
+			   testImageList = []string{
 				"busybox:1.26.2-glibc",
 				"busybox:1-uclibc",
 				"busybox:1",
 				"busybox:1-glibc",
 				"busybox:1-musl",
 			}
-		} else {
+
+		   }
+			} else {
 			testImageList = []string{
 				"busybox:1",
 				"busybox:1-glibc",
