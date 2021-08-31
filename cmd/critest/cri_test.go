@@ -34,6 +34,7 @@ import (
 	"github.com/onsi/gomega"
 
 	_ "github.com/kubernetes-sigs/cri-tools/pkg/benchmark"
+	_ "github.com/kubernetes-sigs/cri-tools/pkg/scale"
 	"github.com/kubernetes-sigs/cri-tools/pkg/common"
 	"github.com/kubernetes-sigs/cri-tools/pkg/framework"
 	_ "github.com/kubernetes-sigs/cri-tools/pkg/validate"
@@ -44,12 +45,14 @@ const (
 	parallelFlag  = "parallel"
 	benchmarkFlag = "benchmark"
 	versionFlag   = "version"
+        scaleFlag = "scale"
 )
 
 var (
 	letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 	isBenchMark = flag.Bool(benchmarkFlag, false, "Run benchmarks instead of validation tests")
+	isScale     = flag.Bool(scaleFlag, false, "Run scale testing tests")
 	parallel    = flag.Int(parallelFlag, 1, "The number of parallel test nodes to run (default 1)")
 	version     = flag.Bool(versionFlag, false, "Display version of critest")
 )
@@ -169,8 +172,9 @@ func TestCRISuite(t *testing.T) {
 		// print version only and exit
 		return
 	}
-
-	if *isBenchMark {
+        if *isScale {
+		flag.Set("ginkgo.focus", "scale")
+	} else if *isBenchMark {
 		flag.Set("ginkgo.focus", "benchmark")
 		flag.Set("ginkgo.succinct", "true")
 	} else {
