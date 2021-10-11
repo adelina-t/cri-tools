@@ -1,28 +1,11 @@
-/*
-Copyright 2017 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package benchmark
 
 import (
 	"github.com/kubernetes-sigs/cri-tools/pkg/framework"
-	internalapi "k8s.io/cri-api/pkg/apis"
-	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gmeasure"
+	internalapi "k8s.io/cri-api/pkg/apis"
 )
 
 const (
@@ -35,74 +18,59 @@ var _ = framework.KubeDescribe("PodSandbox", func() {
 	var c internalapi.RuntimeService
 
 	BeforeEach(func() {
+
 		c = f.CRIClient.CRIRuntimeClient
 	})
 
 	Context("benchmark about operations on PodSandbox", func() {
-		Measure("benchmark about lifecycle of PodSandbox", func(b Benchmarker) {
-			var podID string
-			var err error
+		It("benchmark about lifecycle of PodSandbox", func() {
 
-			podSandboxName := "PodSandbox-for-creating-performance-test-" + framework.NewUUID()
-			uid := framework.DefaultUIDPrefix + framework.NewUUID()
-			namespace := framework.DefaultNamespacePrefix + framework.NewUUID()
+			experiment := gmeasure.NewExperiment("PodLifecycle")
+			experiment.Sample(func(idx int) {
+				var podID string
+				var err error
 
-			config := &runtimeapi.PodSandboxConfig{
-				Metadata: framework.BuildPodSandboxMetadata(podSandboxName, uid, namespace, framework.DefaultAttempt),
-				Linux:    &runtimeapi.LinuxPodSandboxConfig{},
-				Labels:   framework.DefaultPodLabels,
-			}
+				podSandboxName := "PodSandbox-for-creating-performance-test-" + framework.NewUUID()
+				uid := framework.DefaultUIDPrefix + framework.NewUUID()
+				namespace := framework.DefaultNamespacePrefix + framework.NewUUID()
 
-			// TODO: add support of runtime
-			operation := b.Time("create PodSandbox", func() {
+				config := &runtimeapi.PodSandboxConfig{
+					Metadata: framework.BuildPodSandboxMetadata(podSandboxName, uid, namespace, framework.DefaultAttempt)
+					Linux: &runtimeapi.LinuxPodSandboxConfig{},
+					Labels: framework.DefaultPodLabels,
+				}
+
+				By("Creating a pod")
+				stopwatch := experiment.NewStopwatch()
+
 				podID, err = c.RunPodSandbox(config, framework.TestContext.RuntimeHandler)
-			})
+				stopwatch.Record("CreatePod")
+				framework.ExpectNoError(err, "failed to create PodSandbox: %v", err)
 
-			framework.ExpectNoError(err, "failed to create PodSandbox: %v", err)
-			Expect(operation.Seconds()).Should(BeNumerically("<", 5), "create PodSandbox shouldn't take too long.")
-
-			operation = b.Time("PodSandbox status", func() {
+				By("Get Pod status")
+				stopwatch.Reset()
 				_, err = c.PodSandboxStatus(podID)
-			})
+				stopwatch.Record("StatusPod")
+				framework.ExpectNoError(err, "failed to get PodStatus: %v", err)
 
-			framework.ExpectNoError(err, "failed to get PodSandbox status: %v", err)
-			Expect(operation.Seconds()).Should(BeNumerically("<", 5), "get PodSandbox status shouldn't take too long.")
-
-			operation = b.Time("stop PodSandbox", func() {
+				By("Stop PodSandbox")
+				stopwatch.Reset()
 				err = c.StopPodSandbox(podID)
-			})
+				stopwatch.Record("StopPod")
+				framework.ExpectNoError(err, "failed to stop PodSandbox: %v", err)
 
-			framework.ExpectNoError(err, "failed to stop PodSandbox: %v", err)
-			Expect(operation.Seconds()).Should(BeNumerically("<", 5), "stop PodSandbox shouldn't take too long.")
+				By("Remove PodSandbox")
+				stopwatch.Reset()
+				err = c.RemovePodSandbox(podID)
+				stopwatch.Record("RemovePod")
+				framework.ExpectNoError(err, "failed to remove PodSandbox: %v", err)
 
-			operation = b.Time("remove PodSandbox", func() {
-				c.RemovePodSandbox(podID)
-			})
+			}, gmeasure.SamplingConfig{N: 4, NumParallel: 1})
 
-			framework.ExpectNoError(err, "failed to remove PodSandbox: %v", err)
-			Expect(operation.Seconds()).Should(BeNumerically("<", 5), "remove PodSandbox shouldn't take too long.")
-		}, defaultOperationTimes)
-
-		Measure("benchmark about listing PodSandbox", func(b Benchmarker) {
-			podList := make([]string, 0, framework.TestContext.Number)
-			var err error
-
-			for i := 0; i < framework.TestContext.Number; i++ {
-				podID := framework.RunDefaultPodSandbox(c, "PodSandbox-for-list-benchmark-")
-				podList = append(podList, podID)
-			}
-
-			operation := b.Time("list PodSandbox", func() {
-				_, err = c.ListPodSandbox(nil)
-			})
-
-			framework.ExpectNoError(err, "failed to list PodSandbox: %v", err)
-			Expect(operation.Seconds()).Should(BeNumerically("<", 5), "list PodSandbox shouldn't take too long.")
-
-			for _, podID := range podList {
-				c.StopPodSandbox(podID)
-				c.RemovePodSandbox(podID)
-			}
-		}, defaultOperationTimes)
+		framework.Logf("Value for CreatePod %v", experiment.Get("CreatePod").Stats().String())
+		framework.Logf("Value for CreatePod %v", experiment.Get("CreatePod").String())
+			
+		})
 	})
+
 })
