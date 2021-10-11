@@ -3,9 +3,10 @@ package benchmark
 import (
 	"github.com/kubernetes-sigs/cri-tools/pkg/framework"
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+
 	"github.com/onsi/gomega/gmeasure"
 	internalapi "k8s.io/cri-api/pkg/apis"
+	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
 const (
@@ -35,9 +36,9 @@ var _ = framework.KubeDescribe("PodSandbox", func() {
 				namespace := framework.DefaultNamespacePrefix + framework.NewUUID()
 
 				config := &runtimeapi.PodSandboxConfig{
-					Metadata: framework.BuildPodSandboxMetadata(podSandboxName, uid, namespace, framework.DefaultAttempt)
-					Linux: &runtimeapi.LinuxPodSandboxConfig{},
-					Labels: framework.DefaultPodLabels,
+					Metadata: framework.BuildPodSandboxMetadata(podSandboxName, uid, namespace, framework.DefaultAttempt),
+					Linux:    &runtimeapi.LinuxPodSandboxConfig{},
+					Labels:   framework.DefaultPodLabels,
 				}
 
 				By("Creating a pod")
@@ -67,9 +68,9 @@ var _ = framework.KubeDescribe("PodSandbox", func() {
 
 			}, gmeasure.SamplingConfig{N: 4, NumParallel: 1})
 
-		framework.Logf("Value for CreatePod %v", experiment.Get("CreatePod").Stats().String())
-		framework.Logf("Value for CreatePod %v", experiment.Get("CreatePod").String())
-			
+			framework.Logf("Values from sampling: %v %v %v %v", experiment.Get("CreatePod").String(),
+				experiment.Get("StatusPod").String(), experiment.Get("StopPod").String(),
+				experiment.Get("RemovePod").String())
 		})
 	})
 
