@@ -1,3 +1,6 @@
+//go:build pod
+// +build pod
+
 package benchmark
 
 import (
@@ -7,11 +10,20 @@ import (
 	"github.com/onsi/gomega/gmeasure"
 	internalapi "k8s.io/cri-api/pkg/apis"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+	
+	"fmt"
+	"encoding/json"
+	"io/ioutil"
 )
 
 const (
 	defaultOperationTimes int = 20
 )
+
+type ExperimentData struct {
+
+	CreatePod, StatusPod, StopPod, RemovePod string
+}
 
 var _ = framework.KubeDescribe("PodSandbox", func() {
 	f := framework.NewDefaultCRIFramework()
@@ -66,11 +78,17 @@ var _ = framework.KubeDescribe("PodSandbox", func() {
 				stopwatch.Record("RemovePod")
 				framework.ExpectNoError(err, "failed to remove PodSandbox: %v", err)
 
-			}, gmeasure.SamplingConfig{N: 4, NumParallel: 1})
+			}, gmeasure.SamplingConfig{N: 1000, NumParallel: 1})
 
-			framework.Logf("Values from sampling: %v %v %v %v", experiment.Get("CreatePod").String(),
-				experiment.Get("StatusPod").String(), experiment.Get("StopPod").String(),
-				experiment.Get("RemovePod").String())
+			data := ExperimentData{
+				CreatePod: fmt.Sprintf("%v", experiment.Get("CreatePod").Durations),
+				StatusPod: fmt.Sprintf("%v", experiment.Get("StatusPod").Durations),
+				StopPod: fmt.Sprintf("%v", experiment.Get("StopPod").Durations),
+				RemovePod: fmt.Sprintf("%v", experiment.Get("RemovePod").Durations),
+			}
+
+			file, _ := json.MarshalIndent(data, "", " ")
+			_ = ioutil.WriteFile("c:/experiment_old_hcsshim.json", file, 0644)
 		})
 	})
 

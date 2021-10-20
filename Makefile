@@ -35,7 +35,7 @@ BINDIR ?= /usr/local/bin
 VERSION := $(shell git describe --tags --dirty --always)
 VERSION := $(VERSION:v%=%)
 GO_LDFLAGS := -X $(PROJECT)/pkg/version.Version=$(VERSION)
-BUILDTAGS := selinux
+BUILDTAGS := $(BUILDTAGS)
 
 BUILD_PATH := $(shell pwd)/build
 BUILD_BIN_PATH := $(BUILD_PATH)/bin
